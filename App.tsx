@@ -3,6 +3,13 @@ import React, { useState, useContext, createContext, useCallback, useMemo, useEf
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, Outlet, useParams } from 'react-router-dom';
 import type { Doctor } from './types';
 import { INITIAL_DOCTORS, filterDoctors } from './services/geminiService';
+import { 
+  subscribeTodoctors, 
+  addDoctorToFirestore, 
+  updateDoctorInFirestore, 
+  deleteDoctorFromFirestore,
+  initializeSampleData 
+} from './services/firebase';
 
 // --- ICONS --- //
 const IconProps = {
@@ -62,49 +69,47 @@ const DeleteIcon = () => (
 // --- CONTEXT --- //
 interface DoctorContextType {
   doctors: Doctor[];
-  addDoctor: (doctor: Omit<Doctor, 'id'>) => void;
-  updateDoctor: (updatedDoctor: Doctor) => void;
-  deleteDoctor: (id: string) => void;
+  addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<void>;
+  updateDoctor: (updatedDoctor: Doctor) => Promise<void>;
+  deleteDoctor: (id: string) => Promise<void>;
   resetToInitialData: () => void;
   isAuthenticated: boolean;
   login: (user: string, pass: string) => boolean;
   logout: () => void;
   getDoctorById: (id: string) => Doctor | undefined;
+  isLoading: boolean;
 }
 const DoctorContext = createContext<DoctorContextType | null>(null);
 
 const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [doctors, setDoctors] = useState<Doctor[]>(() => {
-    // Load doctors from localStorage, fallback to INITIAL_DOCTORS
-    try {
-      const savedDoctors = localStorage.getItem('docfinder_doctors');
-      if (savedDoctors && savedDoctors !== 'undefined') {
-        const parsed = JSON.parse(savedDoctors);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (error) {
-      console.error('Error loading saved doctors:', error);
-      localStorage.removeItem('docfinder_doctors');
-    }
-    // If no valid saved data, save initial doctors and return them
-    localStorage.setItem('docfinder_doctors', JSON.stringify(INITIAL_DOCTORS));
-    return INITIAL_DOCTORS;
-  });
-  
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
       return sessionStorage.getItem('isAdminAuthenticated') === 'true';
   });
 
-  // Save doctors to localStorage whenever doctors array changes
+  // Initialize Firebase real-time listener
   useEffect(() => {
-    try {
-      localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
-    } catch (error) {
-      console.error('Error saving doctors to localStorage:', error);
-    }
-  }, [doctors]);
+    setIsLoading(true);
+    
+    // Initialize sample data if needed
+    initializeSampleData(INITIAL_DOCTORS);
+    
+    // Set up real-time listener
+    const unsubscribe = subscribeTodoctors((firestoreDoctors) => {
+      setDoctors(firestoreDoctors);
+      setIsLoading(false);
+      
+      // Also save to localStorage as backup
+      try {
+        localStorage.setItem('docfinder_doctors', JSON.stringify(firestoreDoctors));
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const login = useCallback((user: string, pass: string): boolean => {
     if (user === 'admin' && pass === 'doctor123') {
@@ -120,19 +125,43 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
     sessionStorage.removeItem('isAdminAuthenticated');
   }, []);
 
-  const addDoctor = useCallback((doctorData: Omit<Doctor, 'id'>) => {
-    setDoctors((prev) => [
-      ...prev,
-      { ...doctorData, id: `doc${Date.now()}` }
-    ]);
+  const addDoctor = useCallback(async (doctorData: Omit<Doctor, 'id'>) => {
+    try {
+      await addDoctorToFirestore(doctorData);
+      // Real-time listener will automatically update the doctors state
+    } catch (error) {
+      console.error('Error adding doctor:', error);
+      // Fallback to local state update
+      setDoctors((prev) => [
+        ...prev,
+        { ...doctorData, id: `doc${Date.now()}` }
+      ]);
+      throw error;
+    }
   }, []);
 
-  const updateDoctor = useCallback((updatedDoctor: Doctor) => {
-    setDoctors(prev => prev.map(doc => doc.id === updatedDoctor.id ? updatedDoctor : doc));
+  const updateDoctor = useCallback(async (updatedDoctor: Doctor) => {
+    try {
+      await updateDoctorInFirestore(updatedDoctor);
+      // Real-time listener will automatically update the doctors state
+    } catch (error) {
+      console.error('Error updating doctor:', error);
+      // Fallback to local state update
+      setDoctors(prev => prev.map(doc => doc.id === updatedDoctor.id ? updatedDoctor : doc));
+      throw error;
+    }
   }, []);
 
-  const deleteDoctor = useCallback((id: string) => {
-    setDoctors(prev => prev.filter(doc => doc.id !== id));
+  const deleteDoctor = useCallback(async (id: string) => {
+    try {
+      await deleteDoctorFromFirestore(id);
+      // Real-time listener will automatically update the doctors state
+    } catch (error) {
+      console.error('Error deleting doctor:', error);
+      // Fallback to local state update
+      setDoctors(prev => prev.filter(doc => doc.id !== id));
+      throw error;
+    }
   }, []);
 
   const getDoctorById = useCallback((id: string) => {
@@ -157,8 +186,9 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
       isAuthenticated,
       login,
       logout,
-      getDoctorById
-  }), [doctors, addDoctor, updateDoctor, deleteDoctor, resetToInitialData, isAuthenticated, login, logout, getDoctorById]);
+      getDoctorById,
+      isLoading
+  }), [doctors, addDoctor, updateDoctor, deleteDoctor, resetToInitialData, isAuthenticated, login, logout, getDoctorById, isLoading]);
 
   return (
     <DoctorContext.Provider value={value}>
@@ -285,9 +315,14 @@ interface DoctorCardProps {
 const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onViewDetails }) => {
     const { isAuthenticated, deleteDoctor } = useDoctors();
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (window.confirm(`Are you sure you want to delete Dr. ${doctor.name}?`)) {
-            deleteDoctor(doctor.id);
+            try {
+                await deleteDoctor(doctor.id);
+                alert('✅ Doctor deleted successfully!');
+            } catch (error) {
+                alert('❌ Error deleting doctor. Please try again.');
+            }
         }
     };
 
@@ -388,7 +423,7 @@ const DoctorDetailModal: React.FC<DoctorDetailModalProps> = ({ doctor, onClose }
 
 // --- PAGES --- //
 const HomePage: React.FC = () => {
-  const { doctors } = useDoctors();
+  const { doctors, isLoading: doctorsLoading } = useDoctors();
   const [searchResults, setSearchResults] = useState<Doctor[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -425,7 +460,7 @@ const HomePage: React.FC = () => {
           Search by doctor name, medical specialty, or city to find the perfect healthcare provider for your needs.
         </p>
         <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          📊 {doctors.length} doctors available • Data saved permanently
+          📊 {doctors.length} doctors available • Real-time database • Live updates
         </div>
         <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
           💡 Try searching: "Dr Ali", "Cardiologist", "Lahore", "Dentist", etc.
@@ -435,13 +470,16 @@ const HomePage: React.FC = () => {
       <SearchBar onSearch={handleSearch} isLoading={isLoading} />
       
       <div className="mt-12">
-        {isLoading && (
+        {(isLoading || doctorsLoading) && (
           <div className="flex justify-center items-center py-16">
             <SpinnerIcon />
+            <span className="ml-3 text-slate-600 dark:text-slate-400">
+              {doctorsLoading ? 'Loading doctors from database...' : 'Searching...'}
+            </span>
           </div>
         )}
         {error && <p className="text-center text-red-500">{error}</p>}
-        {!isLoading && !error && (
+        {!isLoading && !doctorsLoading && !error && (
             displayDoctors.length > 0 ? (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {displayDoctors.map(doctor => (
@@ -509,7 +547,7 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const finalData = { ...formData };
         if (!finalData.whatsappLink) {
@@ -519,25 +557,29 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
             delete finalData.gmbLink; // Ensure optional Google Maps link is not an empty string
         }
         
-        if (mode === 'edit' && doctorToEdit) {
-            updateDoctor({ ...doctorToEdit, ...finalData });
-            alert('✅ Doctor updated successfully! Data has been saved permanently.');
-        } else {
-            addDoctor(finalData);
-            alert('✅ Doctor added successfully! Data has been saved permanently.');
+        try {
+            if (mode === 'edit' && doctorToEdit) {
+                await updateDoctor({ ...doctorToEdit, ...finalData });
+                alert('✅ Doctor updated successfully! Data saved to database.');
+            } else {
+                await addDoctor(finalData);
+                alert('✅ Doctor added successfully! Data saved to database.');
+            }
+            // Clear form
+            setFormData({
+                name: '',
+                specialty: '',
+                city: 'Dera Ismail Khan',
+                address: '',
+                phone: '',
+                workingHours: '',
+                gmbLink: '',
+                whatsappLink: ''
+            });
+            navigate('/');
+        } catch (error) {
+            alert('❌ Error saving doctor. Please try again.');
         }
-        // Clear form
-        setFormData({
-            name: '',
-            specialty: '',
-            city: 'Dera Ismail Khan',
-            address: '',
-            phone: '',
-            workingHours: '',
-            gmbLink: '',
-            whatsappLink: ''
-        });
-        navigate('/');
     };
     
     const inputClass = "w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition";
