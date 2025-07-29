@@ -1,0 +1,5 @@
+{
+  "name": "DocFinder",
+  "description": "An intelligent doctor search application that helps you find specialists near you. Search by name, specialty, or city and view their profiles using AI-powered search.",
+  "requestFramePermissions": []
+}
