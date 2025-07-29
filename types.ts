@@ -7,6 +7,6 @@ export interface Doctor {
   address: string;
   phone: string;
   workingHours: string;
-  gmbLink: string;
+  gmbLink?: string;
   whatsappLink?: string;
 }

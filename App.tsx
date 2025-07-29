@@ -291,27 +291,29 @@ const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onViewDetails }) => {
             </div>
             <div className="p-6 pt-0">
                 <div className="flex flex-col space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={`grid gap-2 ${doctor.gmbLink ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         <button 
                             onClick={() => onViewDetails(doctor)}
                             className="flex items-center justify-center bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
                         >
                             Details
                         </button>
-                        <a 
-                            href={doctor.gmbLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-                        >
-                            Profile <ExternalLinkIcon />
-                        </a>
+                        {doctor.gmbLink && (
+                            <a 
+                                href={doctor.gmbLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                            >
+                                Profile <ExternalLinkIcon />
+                            </a>
+                        )}
                         {doctor.whatsappLink && (
                              <a 
                                 href={doctor.whatsappLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="col-span-2 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                                className={`${doctor.gmbLink ? 'col-span-2' : 'col-span-1'} flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200`}
                             >
                                 <WhatsappIcon className="w-5 h-5 mr-2" /> WhatsApp
                             </a>
@@ -356,16 +358,18 @@ const DoctorDetailModal: React.FC<DoctorDetailModalProps> = ({ doctor, onClose }
                         <p className="flex items-center"><WhatsappIcon className="w-5 h-5 mr-2 text-green-500" /> <span className="font-semibold mr-2">WhatsApp:</span> <a href={doctor.whatsappLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Click to Chat</a></p>
                     )}
                 </div>
-                <div className="mt-6">
-                     <a 
-                        href={doctor.gmbLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full text-center bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center"
-                    >
-                        Open in Google <ExternalLinkIcon />
-                    </a>
-                </div>
+                {doctor.gmbLink && (
+                    <div className="mt-6">
+                         <a 
+                            href={doctor.gmbLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full text-center bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center"
+                        >
+                            Open in Google <ExternalLinkIcon />
+                        </a>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -497,6 +501,9 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
         if (!finalData.whatsappLink) {
             delete finalData.whatsappLink; // Ensure optional field is not an empty string
         }
+        if (!finalData.gmbLink) {
+            delete finalData.gmbLink; // Ensure optional Google Maps link is not an empty string
+        }
         
         if (mode === 'edit' && doctorToEdit) {
             updateDoctor({ ...doctorToEdit, ...finalData });
@@ -557,8 +564,8 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
                         <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} />
                     </div>
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Google Maps Link (GMB)</label>
-                        <input type="url" name="gmbLink" onChange={handleChange} value={formData.gmbLink} className={inputClass} required />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Google Maps Link (Optional)</label>
+                        <input type="url" name="gmbLink" onChange={handleChange} value={formData.gmbLink} className={inputClass} placeholder="e.g. https://goo.gl/maps/example" />
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">WhatsApp Link (Optional)</label>
