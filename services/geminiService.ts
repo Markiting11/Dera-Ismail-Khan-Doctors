@@ -67,7 +67,7 @@ export const INITIAL_DOCTORS: Doctor[] = [
   }
 ];
 
-// Simple filter function that searches by name, specialty, and city
+// Enhanced filter function that searches by name, specialty, city, and address
 export const filterDoctors = async (query: string, doctors: Doctor[]): Promise<Doctor[]> => {
   // Simulate a small delay to show loading state
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -77,11 +77,27 @@ export const filterDoctors = async (query: string, doctors: Doctor[]): Promise<D
   }
 
   const searchTerm = query.toLowerCase().trim();
+  console.log('🔍 FilterDoctors called with:', searchTerm);
+  console.log('🔍 Total doctors to search:', doctors.length);
   
-  return doctors.filter(doctor => 
-    doctor.name.toLowerCase().includes(searchTerm) ||
-    doctor.specialty.toLowerCase().includes(searchTerm) ||
-    doctor.city.toLowerCase().includes(searchTerm) ||
-    doctor.address.toLowerCase().includes(searchTerm)
-  );
+  const results = doctors.filter(doctor => {
+    const name = doctor.name?.toLowerCase() || '';
+    const specialty = doctor.specialty?.toLowerCase() || '';
+    const city = doctor.city?.toLowerCase() || '';
+    const address = doctor.address?.toLowerCase() || '';
+    
+    const matches = name.includes(searchTerm) ||
+                   specialty.includes(searchTerm) ||
+                   city.includes(searchTerm) ||
+                   address.includes(searchTerm);
+    
+    if (matches) {
+      console.log('✅ Match found:', doctor.name);
+    }
+    
+    return matches;
+  });
+  
+  console.log('🔍 Filter results:', results.length, 'doctors matched');
+  return results;
 };

@@ -132,6 +132,8 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   const resetToInitialData = useCallback(() => {
     if (window.confirm('🔄 Are you sure you want to reset all data to initial sample doctors? This will delete all custom doctors you have added.')) {
+      // Clear localStorage to ensure clean reset
+      localStorage.removeItem('docfinder_doctors');
       setDoctors(INITIAL_DOCTORS);
       alert('✅ Data has been reset to initial sample doctors!');
     }
@@ -391,7 +393,12 @@ const HomePage: React.FC = () => {
       if (!query.trim()) {
         setSearchResults(null);
       } else {
-        const results = await filterDoctors(query, doctors);
+        // Always get fresh doctors data
+        const currentDoctors = doctors;
+        console.log('🔍 Searching in doctors:', currentDoctors.length, 'doctors found');
+        console.log('🔍 Search query:', query);
+        const results = await filterDoctors(query, currentDoctors);
+        console.log('🔍 Search results:', results.length, 'doctors matched');
         setSearchResults(results);
       }
     } catch (e) {
@@ -415,6 +422,10 @@ const HomePage: React.FC = () => {
         </p>
         <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
           📊 {doctors.length} doctors available • Data saved permanently
+        </div>
+        {/* Debug info for troubleshooting */}
+        <div className="mt-2 text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 p-2 rounded">
+          🔧 Debug: {doctors.map(d => d.name).join(', ')}
         </div>
       </div>
 
