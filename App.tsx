@@ -65,6 +65,7 @@ interface DoctorContextType {
   addDoctor: (doctor: Omit<Doctor, 'id'>) => void;
   updateDoctor: (updatedDoctor: Doctor) => void;
   deleteDoctor: (id: string) => void;
+  resetToInitialData: () => void;
   isAuthenticated: boolean;
   login: (user: string, pass: string) => boolean;
   logout: () => void;
@@ -73,10 +74,37 @@ interface DoctorContextType {
 const DoctorContext = createContext<DoctorContextType | null>(null);
 
 const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [doctors, setDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+  const [doctors, setDoctors] = useState<Doctor[]>(() => {
+    // Load doctors from localStorage, fallback to INITIAL_DOCTORS
+    try {
+      const savedDoctors = localStorage.getItem('docfinder_doctors');
+      if (savedDoctors && savedDoctors !== 'undefined') {
+        const parsed = JSON.parse(savedDoctors);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved doctors:', error);
+      localStorage.removeItem('docfinder_doctors');
+    }
+    // If no valid saved data, save initial doctors and return them
+    localStorage.setItem('docfinder_doctors', JSON.stringify(INITIAL_DOCTORS));
+    return INITIAL_DOCTORS;
+  });
+  
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
       return sessionStorage.getItem('isAdminAuthenticated') === 'true';
   });
+
+  // Save doctors to localStorage whenever doctors array changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
+    } catch (error) {
+      console.error('Error saving doctors to localStorage:', error);
+    }
+  }, [doctors]);
 
   const login = useCallback((user: string, pass: string): boolean => {
     if (user === 'admin' && pass === 'doctor123') {
@@ -111,16 +139,26 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return doctors.find(doc => doc.id === id);
   }, [doctors]);
 
+  const resetToInitialData = useCallback(() => {
+    if (window.confirm('🔄 Are you sure you want to reset all data to initial sample doctors? This will delete all custom doctors you have added.')) {
+      // Clear localStorage to ensure clean reset
+      localStorage.removeItem('docfinder_doctors');
+      setDoctors(INITIAL_DOCTORS);
+      alert('✅ Data has been reset to initial sample doctors!');
+    }
+  }, []);
+
   const value = useMemo(() => ({
       doctors,
       addDoctor,
       updateDoctor,
       deleteDoctor,
+      resetToInitialData,
       isAuthenticated,
       login,
       logout,
       getDoctorById
-  }), [doctors, addDoctor, updateDoctor, deleteDoctor, isAuthenticated, login, logout, getDoctorById]);
+  }), [doctors, addDoctor, updateDoctor, deleteDoctor, resetToInitialData, isAuthenticated, login, logout, getDoctorById]);
 
   return (
     <DoctorContext.Provider value={value}>
@@ -151,7 +189,7 @@ const ProtectedRoute = () => {
 
 // --- COMPONENTS --- //
 const Header: React.FC = () => {
-    const { isAuthenticated, logout } = useDoctors();
+    const { isAuthenticated, logout, resetToInitialData } = useDoctors();
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -184,6 +222,9 @@ const Header: React.FC = () => {
                             <Link to="/admin" className={`px-4 py-2 rounded-md font-semibold transition-colors duration-200 ${getLinkClass('/admin')}`}>
                                 Add Doctor
                             </Link>
+                            <button onClick={resetToInitialData} className="px-3 py-2 rounded-md font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-colors duration-200 text-sm">
+                                Reset Data
+                            </button>
                             <button onClick={handleLogout} className="px-4 py-2 rounded-md font-semibold bg-red-500 hover:bg-red-600 text-white transition-colors duration-200">
                                 Logout
                             </button>
@@ -217,7 +258,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by specialty or name in Dera Ismail Khan"
+        placeholder="Search by doctor name, specialty, or city (e.g. 'Dr Ali', 'Cardiologist', 'Lahore')"
         className="w-full bg-transparent p-3 text-slate-700 dark:text-slate-200 focus:outline-none"
         disabled={isLoading}
       />
@@ -261,27 +302,29 @@ const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onViewDetails }) => {
             </div>
             <div className="p-6 pt-0">
                 <div className="flex flex-col space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={`grid gap-2 ${doctor.gmbLink ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         <button 
                             onClick={() => onViewDetails(doctor)}
                             className="flex items-center justify-center bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
                         >
                             Details
                         </button>
-                        <a 
-                            href={doctor.gmbLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-                        >
-                            Profile <ExternalLinkIcon />
-                        </a>
+                        {doctor.gmbLink && (
+                            <a 
+                                href={doctor.gmbLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                            >
+                                Profile <ExternalLinkIcon />
+                            </a>
+                        )}
                         {doctor.whatsappLink && (
                              <a 
                                 href={doctor.whatsappLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="col-span-2 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                                className={`${doctor.gmbLink ? 'col-span-2' : 'col-span-1'} flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200`}
                             >
                                 <WhatsappIcon className="w-5 h-5 mr-2" /> WhatsApp
                             </a>
@@ -326,16 +369,18 @@ const DoctorDetailModal: React.FC<DoctorDetailModalProps> = ({ doctor, onClose }
                         <p className="flex items-center"><WhatsappIcon className="w-5 h-5 mr-2 text-green-500" /> <span className="font-semibold mr-2">WhatsApp:</span> <a href={doctor.whatsappLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Click to Chat</a></p>
                     )}
                 </div>
-                <div className="mt-6">
-                     <a 
-                        href={doctor.gmbLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full text-center bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center"
-                    >
-                        Open in Google <ExternalLinkIcon />
-                    </a>
-                </div>
+                {doctor.gmbLink && (
+                    <div className="mt-6">
+                         <a 
+                            href={doctor.gmbLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full text-center bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center"
+                        >
+                            Open in Google <ExternalLinkIcon />
+                        </a>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -377,8 +422,14 @@ const HomePage: React.FC = () => {
           Find Your Doctor
         </h2>
         <p className="mt-4 max-w-xl mx-auto text-lg text-slate-600 dark:text-slate-400">
-          Use our AI-powered search to find the perfect specialist for your needs in Dera Ismail Khan.
+          Search by doctor name, medical specialty, or city to find the perfect healthcare provider for your needs.
         </p>
+        <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+          📊 {doctors.length} doctors available • Data saved permanently
+        </div>
+        <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          💡 Try searching: "Dr Ali", "Cardiologist", "Lahore", "Dentist", etc.
+        </div>
       </div>
 
       <SearchBar onSearch={handleSearch} isLoading={isLoading} />
@@ -464,14 +515,28 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
         if (!finalData.whatsappLink) {
             delete finalData.whatsappLink; // Ensure optional field is not an empty string
         }
+        if (!finalData.gmbLink) {
+            delete finalData.gmbLink; // Ensure optional Google Maps link is not an empty string
+        }
         
         if (mode === 'edit' && doctorToEdit) {
             updateDoctor({ ...doctorToEdit, ...finalData });
-            alert('Doctor updated successfully!');
+            alert('✅ Doctor updated successfully! Data has been saved permanently.');
         } else {
             addDoctor(finalData);
-            alert('Doctor added successfully!');
+            alert('✅ Doctor added successfully! Data has been saved permanently.');
         }
+        // Clear form
+        setFormData({
+            name: '',
+            specialty: '',
+            city: 'Dera Ismail Khan',
+            address: '',
+            phone: '',
+            workingHours: '',
+            gmbLink: '',
+            whatsappLink: ''
+        });
         navigate('/');
     };
     
@@ -513,8 +578,8 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
                         <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} />
                     </div>
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Google Maps Link (GMB)</label>
-                        <input type="url" name="gmbLink" onChange={handleChange} value={formData.gmbLink} className={inputClass} required />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Google Maps Link (Optional)</label>
+                        <input type="url" name="gmbLink" onChange={handleChange} value={formData.gmbLink} className={inputClass} placeholder="e.g. https://goo.gl/maps/example" />
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">WhatsApp Link (Optional)</label>
@@ -569,7 +634,7 @@ const LoginPage: React.FC = () => {
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
                                 className="relative block w-full appearance-none rounded-none rounded-t-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:z-10 focus:border-primary focus:outline-none focus:ring-primary sm:text-sm bg-slate-100 dark:bg-slate-700"
-                                placeholder="Username (admin)"
+                                placeholder="Username"
                                 aria-label="Username"
                             />
                         </div>
@@ -583,7 +648,7 @@ const LoginPage: React.FC = () => {
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 className="relative block w-full appearance-none rounded-none rounded-b-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:z-10 focus:border-primary focus:outline-none focus:ring-primary sm:text-sm bg-slate-100 dark:bg-slate-700"
-                                placeholder="Password (doctor123)"
+                                placeholder="Password"
                                 aria-label="Password"
                             />
                         </div>
@@ -597,9 +662,6 @@ const LoginPage: React.FC = () => {
                             Sign in
                         </button>
                     </div>
-                     <div className="text-center text-sm text-slate-500 dark:text-slate-400">
-                        <p>Use user: <strong>admin</strong> & pass: <strong>doctor123</strong></p>
-                     </div>
                 </form>
             </div>
         </div>
