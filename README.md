@@ -79,7 +79,7 @@ A modern healthcare application built with React and TypeScript that helps patie
 
 1. **Login to Admin Panel**
    - Click "Admin Login" in the header
-   - Use credentials: `username: admin`, `password: doctor123`
+   - Enter your admin credentials to access the panel
 
 2. **Add New Doctors**
    - Navigate to "Add Doctor" after login
@@ -143,10 +143,9 @@ interface Doctor {
 }
 ```
 
-## 🔐 Admin Credentials
+## 🔐 Admin Access
 
-**Username**: `admin`  
-**Password**: `doctor123`
+Admin credentials are configured in the application code for security purposes. Contact the system administrator for access.
 
 ## 🚀 Next Steps & Enhancements
 
