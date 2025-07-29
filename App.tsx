@@ -65,6 +65,7 @@ interface DoctorContextType {
   addDoctor: (doctor: Omit<Doctor, 'id'>) => void;
   updateDoctor: (updatedDoctor: Doctor) => void;
   deleteDoctor: (id: string) => void;
+  resetToInitialData: () => void;
   isAuthenticated: boolean;
   login: (user: string, pass: string) => boolean;
   logout: () => void;
@@ -73,10 +74,28 @@ interface DoctorContextType {
 const DoctorContext = createContext<DoctorContextType | null>(null);
 
 const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [doctors, setDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+  const [doctors, setDoctors] = useState<Doctor[]>(() => {
+    // Load doctors from localStorage, fallback to INITIAL_DOCTORS
+    const savedDoctors = localStorage.getItem('docfinder_doctors');
+    if (savedDoctors) {
+      try {
+        return JSON.parse(savedDoctors);
+      } catch (error) {
+        console.error('Error parsing saved doctors:', error);
+        return INITIAL_DOCTORS;
+      }
+    }
+    return INITIAL_DOCTORS;
+  });
+  
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
       return sessionStorage.getItem('isAdminAuthenticated') === 'true';
   });
+
+  // Save doctors to localStorage whenever doctors array changes
+  useEffect(() => {
+    localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
+  }, [doctors]);
 
   const login = useCallback((user: string, pass: string): boolean => {
     if (user === 'admin' && pass === 'doctor123') {
@@ -111,16 +130,24 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return doctors.find(doc => doc.id === id);
   }, [doctors]);
 
+  const resetToInitialData = useCallback(() => {
+    if (window.confirm('🔄 Are you sure you want to reset all data to initial sample doctors? This will delete all custom doctors you have added.')) {
+      setDoctors(INITIAL_DOCTORS);
+      alert('✅ Data has been reset to initial sample doctors!');
+    }
+  }, []);
+
   const value = useMemo(() => ({
       doctors,
       addDoctor,
       updateDoctor,
       deleteDoctor,
+      resetToInitialData,
       isAuthenticated,
       login,
       logout,
       getDoctorById
-  }), [doctors, addDoctor, updateDoctor, deleteDoctor, isAuthenticated, login, logout, getDoctorById]);
+  }), [doctors, addDoctor, updateDoctor, deleteDoctor, resetToInitialData, isAuthenticated, login, logout, getDoctorById]);
 
   return (
     <DoctorContext.Provider value={value}>
@@ -151,7 +178,7 @@ const ProtectedRoute = () => {
 
 // --- COMPONENTS --- //
 const Header: React.FC = () => {
-    const { isAuthenticated, logout } = useDoctors();
+    const { isAuthenticated, logout, resetToInitialData } = useDoctors();
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -184,6 +211,9 @@ const Header: React.FC = () => {
                             <Link to="/admin" className={`px-4 py-2 rounded-md font-semibold transition-colors duration-200 ${getLinkClass('/admin')}`}>
                                 Add Doctor
                             </Link>
+                            <button onClick={resetToInitialData} className="px-3 py-2 rounded-md font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-colors duration-200 text-sm">
+                                Reset Data
+                            </button>
                             <button onClick={handleLogout} className="px-4 py-2 rounded-md font-semibold bg-red-500 hover:bg-red-600 text-white transition-colors duration-200">
                                 Logout
                             </button>
@@ -379,6 +409,9 @@ const HomePage: React.FC = () => {
         <p className="mt-4 max-w-xl mx-auto text-lg text-slate-600 dark:text-slate-400">
           Use our AI-powered search to find the perfect specialist for your needs in Dera Ismail Khan.
         </p>
+        <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+          📊 {doctors.length} doctors available • Data saved permanently
+        </div>
       </div>
 
       <SearchBar onSearch={handleSearch} isLoading={isLoading} />
@@ -467,11 +500,22 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
         
         if (mode === 'edit' && doctorToEdit) {
             updateDoctor({ ...doctorToEdit, ...finalData });
-            alert('Doctor updated successfully!');
+            alert('✅ Doctor updated successfully! Data has been saved permanently.');
         } else {
             addDoctor(finalData);
-            alert('Doctor added successfully!');
+            alert('✅ Doctor added successfully! Data has been saved permanently.');
         }
+        // Clear form
+        setFormData({
+            name: '',
+            specialty: '',
+            city: 'Dera Ismail Khan',
+            address: '',
+            phone: '',
+            workingHours: '',
+            gmbLink: '',
+            whatsappLink: ''
+        });
         navigate('/');
     };
     
