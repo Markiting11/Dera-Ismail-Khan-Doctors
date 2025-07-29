@@ -3,6 +3,7 @@ import React, { useState, useContext, createContext, useCallback, useMemo, useEf
 import { Routes, Route, Link, useNavigate, useLocation, Navigate, Outlet, useParams } from 'react-router-dom';
 import type { Doctor } from './types';
 import { INITIAL_DOCTORS, filterDoctors } from './services/geminiService';
+import { addDoctorToFirestore, updateDoctorInFirestore, deleteDoctorFromFirestore, subscribeToDoctors } from './services/firebase';
 
 // --- ICONS --- //
 const IconProps = {
@@ -74,37 +75,20 @@ interface DoctorContextType {
 const DoctorContext = createContext<DoctorContextType | null>(null);
 
 const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [doctors, setDoctors] = useState<Doctor[]>(() => {
-    // Load doctors from localStorage, fallback to INITIAL_DOCTORS
-    try {
-      const savedDoctors = localStorage.getItem('docfinder_doctors');
-      if (savedDoctors && savedDoctors !== 'undefined') {
-        const parsed = JSON.parse(savedDoctors);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (error) {
-      console.error('Error loading saved doctors:', error);
-      localStorage.removeItem('docfinder_doctors');
-    }
-    // If no valid saved data, save initial doctors and return them
-    localStorage.setItem('docfinder_doctors', JSON.stringify(INITIAL_DOCTORS));
-    return INITIAL_DOCTORS;
-  });
-  
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-      return sessionStorage.getItem('isAdminAuthenticated') === 'true';
+    return sessionStorage.getItem('isAdminAuthenticated') === 'true';
   });
 
-  // Save doctors to localStorage whenever doctors array changes
   useEffect(() => {
-    try {
-      localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
-    } catch (error) {
-      console.error('Error saving doctors to localStorage:', error);
-    }
-  }, [doctors]);
+    // Subscribe to Firestore doctors collection
+    const unsubscribe = subscribeToDoctors((docs) => {
+      setDoctors(docs);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const login = useCallback((user: string, pass: string): boolean => {
     if (user === 'admin' && pass === 'doctor123') {
@@ -120,19 +104,17 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
     sessionStorage.removeItem('isAdminAuthenticated');
   }, []);
 
-  const addDoctor = useCallback((doctorData: Omit<Doctor, 'id'>) => {
-    setDoctors((prev) => [
-      ...prev,
-      { ...doctorData, id: `doc${Date.now()}` }
-    ]);
+  const addDoctor = useCallback(async (doctorData: Omit<Doctor, 'id'>) => {
+    await addDoctorToFirestore(doctorData);
   }, []);
 
-  const updateDoctor = useCallback((updatedDoctor: Doctor) => {
-    setDoctors(prev => prev.map(doc => doc.id === updatedDoctor.id ? updatedDoctor : doc));
+  const updateDoctor = useCallback(async (updatedDoctor: Doctor) => {
+    const { id, ...rest } = updatedDoctor;
+    await updateDoctorInFirestore(id, rest);
   }, []);
 
-  const deleteDoctor = useCallback((id: string) => {
-    setDoctors(prev => prev.filter(doc => doc.id !== id));
+  const deleteDoctor = useCallback(async (id: string) => {
+    await deleteDoctorFromFirestore(id);
   }, []);
 
   const getDoctorById = useCallback((id: string) => {
@@ -140,25 +122,24 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }, [doctors]);
 
   const resetToInitialData = useCallback(() => {
-    if (window.confirm('🔄 Are you sure you want to reset all data to initial sample doctors? This will delete all custom doctors you have added.')) {
-      // Clear localStorage to ensure clean reset
-      localStorage.removeItem('docfinder_doctors');
-      setDoctors(INITIAL_DOCTORS);
-      alert('✅ Data has been reset to initial sample doctors!');
-    }
+    alert('Reset is not available in Firestore mode. Please clear the collection manually if needed.');
   }, []);
 
   const value = useMemo(() => ({
-      doctors,
-      addDoctor,
-      updateDoctor,
-      deleteDoctor,
-      resetToInitialData,
-      isAuthenticated,
-      login,
-      logout,
-      getDoctorById
+    doctors,
+    addDoctor,
+    updateDoctor,
+    deleteDoctor,
+    resetToInitialData,
+    isAuthenticated,
+    login,
+    logout,
+    getDoctorById
   }), [doctors, addDoctor, updateDoctor, deleteDoctor, resetToInitialData, isAuthenticated, login, logout, getDoctorById]);
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen"><SpinnerIcon /></div>;
+  }
 
   return (
     <DoctorContext.Provider value={value}>
