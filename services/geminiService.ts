@@ -70,15 +70,13 @@ export const INITIAL_DOCTORS: Doctor[] = [
 // Enhanced filter function that searches by name, specialty, city, and address
 export const filterDoctors = async (query: string, doctors: Doctor[]): Promise<Doctor[]> => {
   // Simulate a small delay to show loading state
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 300));
 
   if (!query.trim()) {
     return doctors;
   }
 
   const searchTerm = query.toLowerCase().trim();
-  console.log('🔍 FilterDoctors called with:', searchTerm);
-  console.log('🔍 Total doctors to search:', doctors.length);
   
   const results = doctors.filter(doctor => {
     const name = doctor.name?.toLowerCase() || '';
@@ -106,13 +104,8 @@ export const filterDoctors = async (query: string, doctors: Doctor[]): Promise<D
       name.split(' ').some(word => word.startsWith(term))
     );
     
-    if (matches) {
-      console.log('✅ Match found:', doctor.name, '- Specialty:', doctor.specialty);
-    }
-    
     return matches;
   });
   
-  console.log('🔍 Filter results:', results.length, 'doctors matched');
   return results;
 };

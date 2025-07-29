@@ -76,15 +76,20 @@ const DoctorContext = createContext<DoctorContextType | null>(null);
 const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [doctors, setDoctors] = useState<Doctor[]>(() => {
     // Load doctors from localStorage, fallback to INITIAL_DOCTORS
-    const savedDoctors = localStorage.getItem('docfinder_doctors');
-    if (savedDoctors) {
-      try {
-        return JSON.parse(savedDoctors);
-      } catch (error) {
-        console.error('Error parsing saved doctors:', error);
-        return INITIAL_DOCTORS;
+    try {
+      const savedDoctors = localStorage.getItem('docfinder_doctors');
+      if (savedDoctors && savedDoctors !== 'undefined') {
+        const parsed = JSON.parse(savedDoctors);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
+    } catch (error) {
+      console.error('Error loading saved doctors:', error);
+      localStorage.removeItem('docfinder_doctors');
     }
+    // If no valid saved data, save initial doctors and return them
+    localStorage.setItem('docfinder_doctors', JSON.stringify(INITIAL_DOCTORS));
     return INITIAL_DOCTORS;
   });
   
@@ -94,7 +99,11 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // Save doctors to localStorage whenever doctors array changes
   useEffect(() => {
-    localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
+    try {
+      localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
+    } catch (error) {
+      console.error('Error saving doctors to localStorage:', error);
+    }
   }, [doctors]);
 
   const login = useCallback((user: string, pass: string): boolean => {
@@ -393,12 +402,7 @@ const HomePage: React.FC = () => {
       if (!query.trim()) {
         setSearchResults(null);
       } else {
-        // Always get fresh doctors data
-        const currentDoctors = doctors;
-        console.log('🔍 Searching in doctors:', currentDoctors.length, 'doctors found');
-        console.log('🔍 Search query:', query);
-        const results = await filterDoctors(query, currentDoctors);
-        console.log('🔍 Search results:', results.length, 'doctors matched');
+        const results = await filterDoctors(query, doctors);
         setSearchResults(results);
       }
     } catch (e) {
@@ -425,10 +429,6 @@ const HomePage: React.FC = () => {
         </div>
         <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
           💡 Try searching: "Dr Ali", "Cardiologist", "Lahore", "Dentist", etc.
-        </div>
-        {/* Debug info for troubleshooting */}
-        <div className="mt-2 text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 p-2 rounded">
-          🔧 Debug: {doctors.map(d => d.name).join(', ')}
         </div>
       </div>
 
