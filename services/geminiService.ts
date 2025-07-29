@@ -86,13 +86,28 @@ export const filterDoctors = async (query: string, doctors: Doctor[]): Promise<D
     const city = doctor.city?.toLowerCase() || '';
     const address = doctor.address?.toLowerCase() || '';
     
-    const matches = name.includes(searchTerm) ||
-                   specialty.includes(searchTerm) ||
-                   city.includes(searchTerm) ||
-                   address.includes(searchTerm);
+    // Enhanced search to handle common variations
+    const searchVariations = [
+      searchTerm,
+      searchTerm.replace(/^dr\.?\s*/i, ''), // Remove "dr" prefix
+      searchTerm.replace(/\s+/g, ''), // Remove spaces
+    ];
+    
+    const matches = searchVariations.some(term => 
+      name.includes(term) ||
+      specialty.includes(term) ||
+      city.includes(term) ||
+      address.includes(term) ||
+      // Also search for "dr + name" patterns
+      name.replace(/^dr\.?\s*/i, '').includes(term) ||
+      // Search for partial matches in specialty
+      specialty.split(' ').some(word => word.startsWith(term)) ||
+      // Search for partial matches in name
+      name.split(' ').some(word => word.startsWith(term))
+    );
     
     if (matches) {
-      console.log('✅ Match found:', doctor.name);
+      console.log('✅ Match found:', doctor.name, '- Specialty:', doctor.specialty);
     }
     
     return matches;

@@ -249,7 +249,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by specialty or name in Dera Ismail Khan"
+        placeholder="Search by doctor name, specialty, or city (e.g. 'Dr Ali', 'Cardiologist', 'Lahore')"
         className="w-full bg-transparent p-3 text-slate-700 dark:text-slate-200 focus:outline-none"
         disabled={isLoading}
       />
@@ -418,10 +418,13 @@ const HomePage: React.FC = () => {
           Find Your Doctor
         </h2>
         <p className="mt-4 max-w-xl mx-auto text-lg text-slate-600 dark:text-slate-400">
-          Use our AI-powered search to find the perfect specialist for your needs in Dera Ismail Khan.
+          Search by doctor name, medical specialty, or city to find the perfect healthcare provider for your needs.
         </p>
         <div className="mt-3 text-sm text-slate-500 dark:text-slate-400">
           📊 {doctors.length} doctors available • Data saved permanently
+        </div>
+        <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          💡 Try searching: "Dr Ali", "Cardiologist", "Lahore", "Dentist", etc.
         </div>
         {/* Debug info for troubleshooting */}
         <div className="mt-2 text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 p-2 rounded">
