@@ -230,9 +230,12 @@ const Header: React.FC = () => {
                             </button>
                         </>
                     ) : (
-                        <Link to="/login" className={`px-4 py-2 rounded-md font-semibold transition-colors duration-200 ${getLinkClass('/login')}`}>
-                            Admin Login
-                        </Link>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-slate-500 dark:text-slate-400">Want to add doctors?</span>
+                            <Link to="/login" className={`px-4 py-2 rounded-md font-semibold transition-colors duration-200 ${getLinkClass('/login')}`}>
+                                Admin Login
+                            </Link>
+                        </div>
                     )}
                 </div>
             </nav>
@@ -571,11 +574,11 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Phone Number</label>
-                        <input type="text" name="phone" onChange={handleChange} value={formData.phone} className={inputClass} />
+                        <input type="text" name="phone" onChange={handleChange} value={formData.phone} className={inputClass} required />
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Working Hours</label>
-                        <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} />
+                        <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} required />
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Google Maps Link (Optional)</label>
