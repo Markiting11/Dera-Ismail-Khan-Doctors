@@ -78,17 +78,19 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
     // Load doctors from localStorage, fallback to INITIAL_DOCTORS
     try {
       const savedDoctors = localStorage.getItem('docfinder_doctors');
-      if (savedDoctors && savedDoctors !== 'undefined') {
+      if (savedDoctors && savedDoctors !== 'undefined' && savedDoctors !== 'null') {
         const parsed = JSON.parse(savedDoctors);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log('✅ Loaded doctors from localStorage:', parsed.length);
           return parsed;
         }
       }
     } catch (error) {
-      console.error('Error loading saved doctors:', error);
+      console.error('❌ Error loading saved doctors:', error);
       localStorage.removeItem('docfinder_doctors');
     }
     // If no valid saved data, save initial doctors and return them
+    console.log('ℹ️ No valid saved data found, initializing with sample doctors');
     localStorage.setItem('docfinder_doctors', JSON.stringify(INITIAL_DOCTORS));
     return INITIAL_DOCTORS;
   });
@@ -101,8 +103,9 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
   useEffect(() => {
     try {
       localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
+      console.log('💾 Auto-saved doctors to localStorage:', doctors.length);
     } catch (error) {
-      console.error('Error saving doctors to localStorage:', error);
+      console.error('❌ Error saving doctors to localStorage:', error);
     }
   }, [doctors]);
 
@@ -121,18 +124,46 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }, []);
 
   const addDoctor = useCallback((doctorData: Omit<Doctor, 'id'>) => {
-    setDoctors((prev) => [
-      ...prev,
-      { ...doctorData, id: `doc${Date.now()}` }
-    ]);
+    const newDoctor = { ...doctorData, id: `doc${Date.now()}` };
+    setDoctors((prev) => {
+      const updatedDoctors = [...prev, newDoctor];
+      // Immediately save to localStorage
+      try {
+        localStorage.setItem('docfinder_doctors', JSON.stringify(updatedDoctors));
+        console.log('✅ Doctor added and saved to localStorage:', newDoctor);
+      } catch (error) {
+        console.error('❌ Error saving to localStorage:', error);
+      }
+      return updatedDoctors;
+    });
   }, []);
 
   const updateDoctor = useCallback((updatedDoctor: Doctor) => {
-    setDoctors(prev => prev.map(doc => doc.id === updatedDoctor.id ? updatedDoctor : doc));
+    setDoctors(prev => {
+      const updatedDoctors = prev.map(doc => doc.id === updatedDoctor.id ? updatedDoctor : doc);
+      // Immediately save to localStorage
+      try {
+        localStorage.setItem('docfinder_doctors', JSON.stringify(updatedDoctors));
+        console.log('✅ Doctor updated and saved to localStorage:', updatedDoctor);
+      } catch (error) {
+        console.error('❌ Error saving to localStorage:', error);
+      }
+      return updatedDoctors;
+    });
   }, []);
 
   const deleteDoctor = useCallback((id: string) => {
-    setDoctors(prev => prev.filter(doc => doc.id !== id));
+    setDoctors(prev => {
+      const updatedDoctors = prev.filter(doc => doc.id !== id);
+      // Immediately save to localStorage
+      try {
+        localStorage.setItem('docfinder_doctors', JSON.stringify(updatedDoctors));
+        console.log('✅ Doctor deleted and saved to localStorage. ID:', id);
+      } catch (error) {
+        console.error('❌ Error saving to localStorage:', error);
+      }
+      return updatedDoctors;
+    });
   }, []);
 
   const getDoctorById = useCallback((id: string) => {
@@ -144,6 +175,9 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
       // Clear localStorage to ensure clean reset
       localStorage.removeItem('docfinder_doctors');
       setDoctors(INITIAL_DOCTORS);
+      // Save initial doctors to localStorage
+      localStorage.setItem('docfinder_doctors', JSON.stringify(INITIAL_DOCTORS));
+      console.log('✅ Data reset completed');
       alert('✅ Data has been reset to initial sample doctors!');
     }
   }, []);
@@ -224,6 +258,14 @@ const Header: React.FC = () => {
                             </Link>
                             <button onClick={resetToInitialData} className="px-3 py-2 rounded-md font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-colors duration-200 text-sm">
                                 Reset Data
+                            </button>
+                            <button onClick={() => {
+                                console.log('🔍 Debug Info:');
+                                console.log('Current doctors:', doctors);
+                                console.log('localStorage doctors:', localStorage.getItem('docfinder_doctors'));
+                                alert(`Debug info logged to console.\nCurrent doctors: ${doctors.length}\nlocalStorage: ${localStorage.getItem('docfinder_doctors') ? 'Has data' : 'No data'}`);
+                            }} className="px-3 py-2 rounded-md font-semibold bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-200 text-sm">
+                                Debug
                             </button>
                             <button onClick={handleLogout} className="px-4 py-2 rounded-md font-semibold bg-red-500 hover:bg-red-600 text-white transition-colors duration-200">
                                 Logout
@@ -511,6 +553,25 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Validate required fields
+        if (!formData.name.trim()) {
+            alert('❌ Doctor name is required!');
+            return;
+        }
+        if (!formData.specialty.trim()) {
+            alert('❌ Specialty is required!');
+            return;
+        }
+        if (!formData.city.trim()) {
+            alert('❌ City is required!');
+            return;
+        }
+        if (!formData.address.trim()) {
+            alert('❌ Address is required!');
+            return;
+        }
+        
         const finalData = { ...formData };
         if (!finalData.whatsappLink) {
             delete finalData.whatsappLink; // Ensure optional field is not an empty string
@@ -519,25 +580,31 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
             delete finalData.gmbLink; // Ensure optional Google Maps link is not an empty string
         }
         
-        if (mode === 'edit' && doctorToEdit) {
-            updateDoctor({ ...doctorToEdit, ...finalData });
-            alert('✅ Doctor updated successfully! Data has been saved permanently.');
-        } else {
-            addDoctor(finalData);
-            alert('✅ Doctor added successfully! Data has been saved permanently.');
+        try {
+            if (mode === 'edit' && doctorToEdit) {
+                updateDoctor({ ...doctorToEdit, ...finalData });
+                alert('✅ Doctor updated successfully! Data has been saved permanently.');
+            } else {
+                addDoctor(finalData);
+                alert('✅ Doctor added successfully! Data has been saved permanently.');
+            }
+            
+            // Clear form
+            setFormData({
+                name: '',
+                specialty: '',
+                city: 'Dera Ismail Khan',
+                address: '',
+                phone: '',
+                workingHours: '',
+                gmbLink: '',
+                whatsappLink: ''
+            });
+            navigate('/');
+        } catch (error) {
+            console.error('❌ Error saving doctor:', error);
+            alert('❌ Error saving doctor. Please try again.');
         }
-        // Clear form
-        setFormData({
-            name: '',
-            specialty: '',
-            city: 'Dera Ismail Khan',
-            address: '',
-            phone: '',
-            workingHours: '',
-            gmbLink: '',
-            whatsappLink: ''
-        });
-        navigate('/');
     };
     
     const inputClass = "w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition";
@@ -571,11 +638,11 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Phone Number</label>
-                        <input type="text" name="phone" onChange={handleChange} value={formData.phone} className={inputClass} />
+                        <input type="text" name="phone" onChange={handleChange} value={formData.phone} className={inputClass} placeholder="e.g. +92-123-456789" />
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Working Hours</label>
-                        <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} />
+                        <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} placeholder="e.g. Mon-Fri: 9:00 AM - 5:00 PM" />
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Google Maps Link (Optional)</label>
