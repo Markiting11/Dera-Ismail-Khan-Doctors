@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Addition Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold mb-4">Doctor Addition Test</h1>
+        
+        <form id="doctorForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Doctor Name</label>
+                <input type="text" id="name" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Specialty</label>
+                <input type="text" id="specialty" name="specialty" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">City</label>
+                <input type="text" id="city" name="city" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Address</label>
+                <input type="text" id="address" name="address" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
+            </div>
+            
+            <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600">
+                Add Doctor
+            </button>
+        </form>
+        
+        <div id="result" class="mt-4 p-4 bg-gray-50 rounded-md hidden">
+            <h3 class="font-semibold">Result:</h3>
+            <pre id="resultText" class="mt-2 text-sm"></pre>
+        </div>
+    </div>
+
+    <script>
+        // Test localStorage functionality
+        const testDoctor = {
+            id: 'test-doc-1',
+            name: 'Dr. Test Doctor',
+            specialty: 'Test Specialty',
+            city: 'Test City',
+            address: 'Test Address',
+            phone: '123-456-7890',
+            workingHours: '9 AM - 5 PM'
+        };
+
+        // Test saving to localStorage
+        try {
+            localStorage.setItem('test_doctors', JSON.stringify([testDoctor]));
+            console.log('Test doctor saved to localStorage');
+            
+            const saved = localStorage.getItem('test_doctors');
+            const parsed = JSON.parse(saved);
+            console.log('Retrieved from localStorage:', parsed);
+            
+            if (parsed && parsed.length > 0) {
+                console.log('✅ localStorage is working correctly');
+            } else {
+                console.log('❌ localStorage is not working correctly');
+            }
+        } catch (error) {
+            console.error('Error testing localStorage:', error);
+        }
+
+        // Test form submission
+        document.getElementById('doctorForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const doctorData = {
+                name: formData.get('name'),
+                specialty: formData.get('specialty'),
+                city: formData.get('city'),
+                address: formData.get('address')
+            };
+            
+            console.log('Form data:', doctorData);
+            
+            // Simulate adding to localStorage
+            try {
+                const existing = localStorage.getItem('test_doctors') || '[]';
+                const doctors = JSON.parse(existing);
+                const newDoctor = {
+                    ...doctorData,
+                    id: 'doc-' + Date.now(),
+                    phone: '',
+                    workingHours: ''
+                };
+                
+                doctors.push(newDoctor);
+                localStorage.setItem('test_doctors', JSON.stringify(doctors));
+                
+                document.getElementById('result').classList.remove('hidden');
+                document.getElementById('resultText').textContent = JSON.stringify(doctors, null, 2);
+                
+                console.log('✅ Doctor added successfully:', newDoctor);
+            } catch (error) {
+                console.error('❌ Error adding doctor:', error);
+                document.getElementById('result').classList.remove('hidden');
+                document.getElementById('resultText').textContent = 'Error: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

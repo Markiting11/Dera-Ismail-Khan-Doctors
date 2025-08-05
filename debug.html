@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Doctor Addition</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Debug - Doctor Addition Test</h1>
+    
+    <div class="debug-section">
+        <h3>1. Test localStorage</h3>
+        <button onclick="testLocalStorage()">Test localStorage</button>
+        <div id="localStorageResult"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>2. Test Form Submission</h3>
+        <form id="testForm">
+            <div>
+                <label>Name: <input type="text" name="name" value="Dr. Test Doctor" required></label>
+            </div>
+            <div>
+                <label>Specialty: <input type="text" name="specialty" value="Test Specialty" required></label>
+            </div>
+            <div>
+                <label>City: <input type="text" name="city" value="Test City" required></label>
+            </div>
+            <div>
+                <label>Address: <input type="text" name="address" value="Test Address" required></label>
+            </div>
+            <button type="submit">Add Test Doctor</button>
+        </form>
+        <div id="formResult"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>3. View Current Doctors</h3>
+        <button onclick="viewDoctors()">View Doctors</button>
+        <div id="doctorsList"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>4. Clear All Data</h3>
+        <button onclick="clearData()">Clear All Data</button>
+        <div id="clearResult"></div>
+    </div>
+
+    <script>
+        function testLocalStorage() {
+            const resultDiv = document.getElementById('localStorageResult');
+            try {
+                // Test basic localStorage functionality
+                localStorage.setItem('test_key', 'test_value');
+                const retrieved = localStorage.getItem('test_key');
+                
+                if (retrieved === 'test_value') {
+                    resultDiv.innerHTML = '<div class="success">✅ localStorage is working correctly</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ localStorage is not working correctly</div>';
+                }
+                
+                // Clean up test
+                localStorage.removeItem('test_key');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ localStorage error: ${error.message}</div>`;
+            }
+        }
+        
+        function viewDoctors() {
+            const resultDiv = document.getElementById('doctorsList');
+            try {
+                const doctors = JSON.parse(localStorage.getItem('docfinder_doctors') || '[]');
+                resultDiv.innerHTML = `
+                    <h4>Current Doctors (${doctors.length}):</h4>
+                    <pre>${JSON.stringify(doctors, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error reading doctors: ${error.message}</div>`;
+            }
+        }
+        
+        function clearData() {
+            const resultDiv = document.getElementById('clearResult');
+            try {
+                localStorage.removeItem('docfinder_doctors');
+                resultDiv.innerHTML = '<div class="success">✅ All data cleared successfully</div>';
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error clearing data: ${error.message}</div>`;
+            }
+        }
+        
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('formResult');
+            
+            try {
+                const formData = new FormData(e.target);
+                const doctorData = {
+                    name: formData.get('name'),
+                    specialty: formData.get('specialty'),
+                    city: formData.get('city'),
+                    address: formData.get('address'),
+                    phone: '',
+                    workingHours: ''
+                };
+                
+                console.log('Form data:', doctorData);
+                
+                // Get existing doctors
+                const existing = localStorage.getItem('docfinder_doctors') || '[]';
+                const doctors = JSON.parse(existing);
+                
+                // Add new doctor
+                const newDoctor = {
+                    ...doctorData,
+                    id: 'doc-' + Date.now()
+                };
+                
+                doctors.push(newDoctor);
+                
+                // Save back to localStorage
+                localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Doctor added successfully!<br>
+                        <strong>New Doctor:</strong><br>
+                        <pre>${JSON.stringify(newDoctor, null, 2)}</pre>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error adding doctor: ${error.message}</div>`;
+            }
+        });
+        
+        // Auto-test localStorage on page load
+        window.addEventListener('load', function() {
+            testLocalStorage();
+            viewDoctors();
+        });
+    </script>
+</body>
+</html>
