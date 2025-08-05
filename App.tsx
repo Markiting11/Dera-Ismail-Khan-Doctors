@@ -393,6 +393,8 @@ const HomePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  
+
 
   const handleSearch = useCallback(async (query: string) => {
     setIsLoading(true);
@@ -511,6 +513,33 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Validate required fields
+        if (!formData.name.trim()) {
+            alert('❌ Doctor name is required!');
+            return;
+        }
+        if (!formData.specialty.trim()) {
+            alert('❌ Specialty is required!');
+            return;
+        }
+        if (!formData.city.trim()) {
+            alert('❌ City is required!');
+            return;
+        }
+        if (!formData.address.trim()) {
+            alert('❌ Address is required!');
+            return;
+        }
+        if (!formData.phone.trim()) {
+            alert('❌ Phone number is required!');
+            return;
+        }
+        if (!formData.workingHours.trim()) {
+            alert('❌ Working hours are required!');
+            return;
+        }
+        
         const finalData = { ...formData };
         if (!finalData.whatsappLink) {
             delete finalData.whatsappLink; // Ensure optional field is not an empty string
@@ -523,21 +552,29 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
             updateDoctor({ ...doctorToEdit, ...finalData });
             alert('✅ Doctor updated successfully! Data has been saved permanently.');
         } else {
-            addDoctor(finalData);
-            alert('✅ Doctor added successfully! Data has been saved permanently.');
+            try {
+                addDoctor(finalData);
+                alert('✅ Doctor added successfully! Data has been saved permanently.');
+            } catch (error) {
+                console.error('Error adding doctor:', error);
+                alert('❌ Error adding doctor. Please try again.');
+            }
         }
-        // Clear form
-        setFormData({
-            name: '',
-            specialty: '',
-            city: 'Dera Ismail Khan',
-            address: '',
-            phone: '',
-            workingHours: '',
-            gmbLink: '',
-            whatsappLink: ''
-        });
-        navigate('/');
+        
+        // Clear form and navigate back to home
+        setTimeout(() => {
+            setFormData({
+                name: '',
+                specialty: '',
+                city: 'Dera Ismail Khan',
+                address: '',
+                phone: '',
+                workingHours: '',
+                gmbLink: '',
+                whatsappLink: ''
+            });
+            navigate('/');
+        }, 100);
     };
     
     const inputClass = "w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition";
@@ -552,30 +589,33 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
                 <h2 className="text-3xl font-bold mb-6 text-center text-slate-900 dark:text-white">
                     {mode === 'edit' ? 'Edit Doctor' : 'Add a New Doctor'}
                 </h2>
+                <p className="text-center text-slate-600 dark:text-slate-400 mb-6">
+                    Fields marked with * are required. All data is saved permanently.
+                </p>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Doctor Name</label>
-                        <input type="text" name="name" onChange={handleChange} value={formData.name} className={inputClass} required />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Doctor Name *</label>
+                        <input type="text" name="name" onChange={handleChange} value={formData.name} className={inputClass} required placeholder="e.g. Dr. Muhammad Ahmed Khan" />
                     </div>
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Specialty</label>
-                        <input type="text" name="specialty" onChange={handleChange} value={formData.specialty} className={inputClass} required />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Specialty *</label>
+                        <input type="text" name="specialty" onChange={handleChange} value={formData.specialty} className={inputClass} required placeholder="e.g. Cardiologist, Pediatrician, Dentist" />
                     </div>
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">City</label>
-                        <input type="text" name="city" onChange={handleChange} value={formData.city} className={inputClass} required />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">City *</label>
+                        <input type="text" name="city" onChange={handleChange} value={formData.city} className={inputClass} required placeholder="e.g. Dera Ismail Khan, Lahore, Karachi" />
                     </div>
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Clinic Address</label>
-                        <input type="text" name="address" onChange={handleChange} value={formData.address} className={inputClass} required />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Clinic Address *</label>
+                        <input type="text" name="address" onChange={handleChange} value={formData.address} className={inputClass} required placeholder="e.g. City Hospital, Bannu Road, Dera Ismail Khan" />
                     </div>
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Phone Number</label>
-                        <input type="text" name="phone" onChange={handleChange} value={formData.phone} className={inputClass} />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Phone Number *</label>
+                        <input type="text" name="phone" onChange={handleChange} value={formData.phone} className={inputClass} required placeholder="e.g. +92-966-750123" />
                     </div>
                     <div>
-                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Working Hours</label>
-                        <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} />
+                        <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Working Hours *</label>
+                        <input type="text" name="workingHours" onChange={handleChange} value={formData.workingHours} className={inputClass} required placeholder="e.g. Mon-Fri: 9:00 AM - 5:00 PM, Sat: 10:00 AM - 2:00 PM" />
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-slate-700 dark:text-slate-300">Google Maps Link (Optional)</label>
