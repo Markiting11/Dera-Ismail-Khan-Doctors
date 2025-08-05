@@ -100,7 +100,16 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
   // Save doctors to localStorage whenever doctors array changes
   useEffect(() => {
     try {
+      console.log('Saving doctors to localStorage:', doctors); // Debug log
       localStorage.setItem('docfinder_doctors', JSON.stringify(doctors));
+      console.log('Doctors saved successfully to localStorage'); // Debug log
+      
+      // Verify the data was saved correctly
+      const savedData = localStorage.getItem('docfinder_doctors');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        console.log('Verified saved data:', parsedData);
+      }
     } catch (error) {
       console.error('Error saving doctors to localStorage:', error);
     }
@@ -121,10 +130,15 @@ const DoctorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }, []);
 
   const addDoctor = useCallback((doctorData: Omit<Doctor, 'id'>) => {
-    setDoctors((prev) => [
-      ...prev,
-      { ...doctorData, id: `doc${Date.now()}` }
-    ]);
+    console.log('addDoctor called with:', doctorData); // Debug log
+    const newDoctor = { ...doctorData, id: `doc${Date.now()}` };
+    console.log('New doctor object:', newDoctor); // Debug log
+    setDoctors((prev) => {
+      const updatedDoctors = [...prev, newDoctor];
+      console.log('Updated doctors array:', updatedDoctors); // Debug log
+      return updatedDoctors;
+    });
+    return true; // Return success indicator
   }, []);
 
   const updateDoctor = useCallback((updatedDoctor: Doctor) => {
@@ -394,6 +408,9 @@ const HomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
+  // Debug log to see doctors array
+  console.log('HomePage - Current doctors:', doctors);
+
   const handleSearch = useCallback(async (query: string) => {
     setIsLoading(true);
     setError(null);
@@ -490,6 +507,11 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
         whatsappLink: ''
     });
 
+    // Debug: Log form data changes
+    useEffect(() => {
+        console.log('Form data changed:', formData);
+    }, [formData]);
+
     useEffect(() => {
         if (doctorToEdit) {
             setFormData({
@@ -506,38 +528,89 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ mode }) => {
     }, [doctorToEdit]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const newFormData = { ...formData, [e.target.name]: e.target.value };
+        console.log('Form data updated:', e.target.name, '=', e.target.value); // Debug log
+        setFormData(newFormData);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const finalData = { ...formData };
-        if (!finalData.whatsappLink) {
-            delete finalData.whatsappLink; // Ensure optional field is not an empty string
+        
+        // Validate required fields
+        const requiredFields = {
+            name: formData.name.trim(),
+            specialty: formData.specialty.trim(),
+            city: formData.city.trim(),
+            address: formData.address.trim()
+        };
+        
+        const missingFields = Object.entries(requiredFields)
+            .filter(([_, value]) => !value)
+            .map(([field]) => field);
+            
+        if (missingFields.length > 0) {
+            alert(`❌ Please fill in all required fields: ${missingFields.join(', ')}`);
+            return;
         }
-        if (!finalData.gmbLink) {
-            delete finalData.gmbLink; // Ensure optional Google Maps link is not an empty string
-        }
+        
+        // Ensure all required fields are present and properly formatted
+        const finalData: Omit<Doctor, 'id'> = {
+            name: formData.name.trim(),
+            specialty: formData.specialty.trim(),
+            city: formData.city.trim(),
+            address: formData.address.trim(),
+            phone: formData.phone.trim() || '',
+            workingHours: formData.workingHours.trim() || '',
+            ...(formData.gmbLink && formData.gmbLink.trim() ? { gmbLink: formData.gmbLink.trim() } : {}),
+            ...(formData.whatsappLink && formData.whatsappLink.trim() ? { whatsappLink: formData.whatsappLink.trim() } : {})
+        };
+        
+        console.log('Adding doctor with data:', finalData); // Debug log
         
         if (mode === 'edit' && doctorToEdit) {
             updateDoctor({ ...doctorToEdit, ...finalData });
             alert('✅ Doctor updated successfully! Data has been saved permanently.');
         } else {
-            addDoctor(finalData);
-            alert('✅ Doctor added successfully! Data has been saved permanently.');
+            try {
+                console.log('About to add doctor with data:', finalData);
+                addDoctor(finalData);
+                
+                // Check if the doctor was actually added
+                setTimeout(() => {
+                    const currentDoctors = JSON.parse(localStorage.getItem('docfinder_doctors') || '[]');
+                    console.log('Current doctors after adding:', currentDoctors);
+                    
+                    const addedDoctor = currentDoctors.find((doc: Doctor) => 
+                        doc.name === finalData.name && 
+                        doc.specialty === finalData.specialty &&
+                        doc.city === finalData.city
+                    );
+                    
+                    if (addedDoctor) {
+                        alert('✅ Doctor added successfully! Data has been saved permanently.');
+                        // Clear form and navigate only after successful addition
+                        setFormData({
+                            name: '',
+                            specialty: '',
+                            city: 'Dera Ismail Khan',
+                            address: '',
+                            phone: '',
+                            workingHours: '',
+                            gmbLink: '',
+                            whatsappLink: ''
+                        });
+                        navigate('/');
+                    } else {
+                        alert('❌ Doctor was not added. Please try again.');
+                    }
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error adding doctor:', error);
+                alert('❌ Error adding doctor. Please try again.');
+                return;
+            }
         }
-        // Clear form
-        setFormData({
-            name: '',
-            specialty: '',
-            city: 'Dera Ismail Khan',
-            address: '',
-            phone: '',
-            workingHours: '',
-            gmbLink: '',
-            whatsappLink: ''
-        });
-        navigate('/');
     };
     
     const inputClass = "w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition";
